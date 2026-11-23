@@ -11,7 +11,7 @@
 // Outside the grader's container, MAKEFUN_BOT_DIR and MAKEFUN_OUTPUT_DIR stand in for /bot and /output:
 //   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BOT_DIR = process.env.MAKEFUN_BOT_DIR ?? '/bot';
@@ -23,4 +23,26 @@ try {
 } catch (err) {
   console.error(`POST.json could not be copied from ${BOT_DIR}: ${(err as Error).message}`);
   process.exit(1);
+}
+
+// Agent-added validation: read the copied entry back and sanity-check the post URL.
+// This only prints diagnostics; it never fails the run, so the copy behaviour above
+// (including its exit codes) is unchanged.
+const PLAY_CODE = 'makefun-puppet-osprey-stadium';
+const POST_URL_PATTERN = /^https:\/\/x\.com\/[A-Za-z0-9_]+\/status\/(\d+)$/;
+try {
+  const copied = readFileSync(join(OUTPUT_DIR, 'POST.json'), 'utf8');
+  const entry = JSON.parse(copied) as { url?: unknown };
+  const url = typeof entry.url === 'string' ? entry.url : '';
+  const match = POST_URL_PATTERN.exec(url);
+  if (!match) {
+    console.warn(`warning: POST.json url does not look like an X status URL: ${url}`);
+  } else {
+    console.log(`entry post: ${url}`);
+    console.log(`status id: ${match[1]}`);
+    console.log(`play code: ${PLAY_CODE}`);
+    console.log('POST.json validated: X status URL present.');
+  }
+} catch (err) {
+  console.warn(`warning: could not validate copied POST.json: ${(err as Error).message}`);
 }
